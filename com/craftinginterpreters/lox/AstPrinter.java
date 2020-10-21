@@ -1,5 +1,8 @@
 package com.craftinginterpreters.lox;
 
+/**
+ * Helper class to print the expression after parsing
+ */
 class AstPrinter implements Expr.Visitor<String> {
     String print(Expr expr) {
         return expr.accept(this);
