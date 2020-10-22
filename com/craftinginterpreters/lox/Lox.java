@@ -78,7 +78,6 @@ public class Lox {
             return;
 
         // execute
-        // System.out.println(new AstPrinter().print(statements));
         interpreter.interpret(statements);
     }
 

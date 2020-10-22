@@ -1,9 +1,13 @@
 package com.craftinginterpreters.lox;
 
+import com.craftinginterpreters.lox.Expr.Assign;
+import com.craftinginterpreters.lox.Expr.Variable;
+
 /**
  * Helper class to print the expression after parsing
  */
 class AstPrinter implements Expr.Visitor<String> {
+
     String print(Expr expr) {
         return expr.accept(this);
     }
@@ -49,6 +53,18 @@ class AstPrinter implements Expr.Visitor<String> {
                 new Token(TokenType.STAR, "*", null, 1), new Expr.Grouping(new Expr.Literal(45.67)));
 
         System.out.println(new AstPrinter().print(expression));
+    }
+
+    @Override
+    public String visitVariableExpr(Variable expr) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String visitAssignExpr(Assign expr) {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }
