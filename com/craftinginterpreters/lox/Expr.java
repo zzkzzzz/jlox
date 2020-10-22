@@ -1,7 +1,5 @@
 package com.craftinginterpreters.lox;
 
-import java.util.List;
-
 // expression     → literal
 //                | unary
 //                | binary

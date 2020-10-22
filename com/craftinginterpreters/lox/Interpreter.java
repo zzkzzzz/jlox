@@ -1,11 +1,21 @@
 package com.craftinginterpreters.lox;
 
-class Interpreter implements Expr.Visitor<Object> {
+import java.util.List;
 
-    void interpret(Expr expression) {
+/**
+ * Lox is dynamic typing language like javascript, but Java is static types. A
+ * variable in Lox can store a value of any (Lox) type, and can even store
+ * values of different types at different points in time. So store the variable
+ * as Java Object. Use of Java’s built-in instanceof operator help to determine
+ * the runtime value is a number, boolean or string
+ */
+class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+
+    void interpret(List<Stmt> statements) {
         try {
-            Object value = evaluate(expression);
-            System.out.println(stringify(value));
+            for (Stmt statement : statements) {
+                execute(statement);
+            }
         } catch (RuntimeError error) {
             Lox.runtimeError(error);
         }
@@ -15,6 +25,24 @@ class Interpreter implements Expr.Visitor<Object> {
         return expr.accept(this);
     }
 
+    private void execute(Stmt stmt) {
+        stmt.accept(this);
+    }
+
+    @Override
+    public Void visitExpressionStmt(Stmt.Expression stmt) {
+        evaluate(stmt.expression);
+        return null;
+    }
+
+    @Override
+    public Void visitPrintStmt(Stmt.Print stmt) {
+        Object value = evaluate(stmt.expression);
+        System.out.println(stringify(value));
+        return null;
+    }
+
+    // Literal is almost a value.
     @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
         return expr.value;
@@ -22,6 +50,7 @@ class Interpreter implements Expr.Visitor<Object> {
 
     @Override
     public Object visitUnaryExpr(Expr.Unary expr) {
+        // evaluate the literal expression
         Object right = evaluate(expr.right);
 
         switch (expr.operator.type) {
@@ -47,6 +76,7 @@ class Interpreter implements Expr.Visitor<Object> {
 
     @Override
     public Object visitBinaryExpr(Expr.Binary expr) {
+        // evaluate the literal expression
         Object left = evaluate(expr.left);
         Object right = evaluate(expr.right);
 
@@ -105,8 +135,14 @@ class Interpreter implements Expr.Visitor<Object> {
         throw new RuntimeError(operator, "Operands must be numbers.");
     }
 
+    /**
+     * A grouping node has a reference to an inner node for the expression contained
+     * inside the parentheses.
+     */
     @Override
     public Object visitGroupingExpr(Expr.Grouping expr) {
+        // evaluate the expression only
+        // recursively evaluate the subexpressions
         return evaluate(expr.expression);
     }
 
