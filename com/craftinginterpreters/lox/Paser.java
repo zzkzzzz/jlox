@@ -1,6 +1,7 @@
 package com.craftinginterpreters.lox;
 
 import java.util.List;
+import java.util.Arrays;
 import java.util.ArrayList;
 
 import static com.craftinginterpreters.lox.TokenType.*;
@@ -8,16 +9,21 @@ import static com.craftinginterpreters.lox.TokenType.*;
 // program        → statement* EOF 
 
 // declaration    → varDecl | statement 
-// statement      → exprStmt | printStmt | block
+// statement      → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block
 
 // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" 
 
 // exprStmt       → expression ";" 
+// forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement 
+// ifStmt         → "if" "(" expression ")" statement ( "else" statement )? 
 // printStmt      → "print" expression ";" 
+// whileStmt      → "while" "(" expression ")" statement 
 // block          → "{" declaration* "}" 
 
 // expression     → assignment 
-// assignment     → IDENTIFIER "=" assignment | equality 
+// assignment     → identifier "=" assignment | logic_or 
+// logic_or       → logic_and ( "or" logic_and )* 
+// logic_and      → equality ( "and" equality )* 
 // equality       → comparison ( ( "!=" | "==" ) comparison )* 
 // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )*
 // term           → factor ( ( "-" | "+" ) factor )* 
@@ -91,12 +97,103 @@ class Parser {
     }
 
     private Stmt statement() {
+        if (match(FOR))
+            return forStatement();
+        if (match(IF))
+            return ifStatement();
         if (match(PRINT))
             return printStatement();
+        if (match(WHILE))
+            return whileStatement();
         if (match(LEFT_BRACE))
             return new Stmt.Block(block());
 
         return expressionStatement();
+    }
+
+    // Actually forloop is same as while loop.
+    // they just make some common code patterns more pleasant to write. These kinds
+    // of features are called syntactic sugar.
+    // desugaring it...
+    private Stmt forStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'for'.");
+
+        // if diretly match a ";", which means no initializer
+        // the initializer can be empty or declare a variable or expression
+        Stmt initializer;
+        if (match(SEMICOLON)) {
+            initializer = null;
+        } else if (match(VAR)) {
+            initializer = varDeclaration();
+        } else {
+            initializer = expressionStatement();
+        }
+
+        // if diretly match a ";", which means no condition
+        // the condition can be empty or expression
+        Expr condition = null;
+        if (!check(SEMICOLON)) {
+            condition = expression();
+        }
+        consume(SEMICOLON, "Expect ';' after loop condition.");
+
+        // if diretly match a ";", which means no increment
+        // the increment can be empty or expression
+        Expr increment = null;
+        if (!check(RIGHT_PAREN)) {
+            increment = expression();
+        }
+        consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        Stmt body = statement();
+
+        if (increment != null) {
+            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
+        }
+
+        if (condition == null)
+            condition = new Expr.Literal(true);
+        body = new Stmt.While(condition, body);
+
+        if (initializer != null) {
+            body = new Stmt.Block(Arrays.asList(initializer, body));
+        }
+
+        // finally, convert the forloop to a while loop
+        // {
+        // var i = 0; => initializer
+        // while (i < 10) { => condition
+        // print i; => body
+        // i = i + 1; => increment
+        // }
+        // }
+
+        return body;
+    }
+
+    private Stmt ifStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'if'.");
+        Expr condition = expression();
+        consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+        Stmt thenBranch = statement();
+        // if no else branch, it will remain null
+        // the else is bound to the nearest if
+        Stmt elseBranch = null;
+        if (match(ELSE)) {
+            elseBranch = statement();
+        }
+
+        return new Stmt.If(condition, thenBranch, elseBranch);
+    }
+
+    private Stmt whileStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'while'.");
+        Expr condition = expression();
+        consume(RIGHT_PAREN, "Expect ')' after condition.");
+        Stmt body = statement();
+
+        return new Stmt.While(condition, body);
     }
 
     private Stmt printStatement() {
@@ -127,7 +224,7 @@ class Parser {
     }
 
     private Expr assignment() {
-        Expr expr = equality();
+        Expr expr = or();
 
         if (match(EQUAL)) {
             Token equals = previous();
@@ -139,6 +236,30 @@ class Parser {
             }
 
             error(equals, "Invalid assignment target.");
+        }
+
+        return expr;
+    }
+
+    private Expr or() {
+        Expr expr = and();
+
+        while (match(OR)) {
+            Token operator = previous();
+            Expr right = and();
+            expr = new Expr.Logical(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expr and() {
+        Expr expr = equality();
+
+        while (match(AND)) {
+            Token operator = previous();
+            Expr right = equality();
+            expr = new Expr.Logical(expr, operator, right);
         }
 
         return expr;
