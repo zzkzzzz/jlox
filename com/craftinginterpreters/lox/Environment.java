@@ -21,6 +21,7 @@ class Environment {
         this.enclosing = enclosing;
     }
 
+    // walk through the chain of enclosing environment
     Object get(Token name) {
         if (values.containsKey(name.lexeme)) {
             return values.get(name.lexeme);
@@ -52,6 +53,25 @@ class Environment {
 
     void define(String name, Object value) {
         values.put(name, value);
+    }
+
+    // get the value according to the distance and local variable name
+    Object getAt(int distance, String name) {
+        return ancestor(distance).values.get(name);
+    }
+
+    void assignAt(int distance, Token name, Object value) {
+        ancestor(distance).values.put(name.lexeme, value);
+    }
+
+    // get the environment according to given distance
+    Environment ancestor(int distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; i++) {
+            environment = environment.enclosing;
+        }
+
+        return environment;
     }
 
 }
